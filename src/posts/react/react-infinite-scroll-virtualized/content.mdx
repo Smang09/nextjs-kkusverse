@@ -1,0 +1,235 @@
+---
+title: 'React에서 라이브러리 없이 구현하는 Infinite Scroll + Virtual Scroll'
+desc: '대용량 데이터 렌더링 최적화를 위한 무한 스크롤과 가상 스크롤을 라이브러리 없이 직접 구현해보자.'
+tags: [React, Infinite Scroll, Virtual Scroll, Optimizing Performance]
+date: 2025-09-12
+---
+
+## <Title>🌱 들어가며</Title>
+
+웹에서 데이터가 많아질수록 사용자 경험을 해치지 않으면서 부드럽게 렌더링하는 것이 중요합니다. 대표적인 예시가 무한 스크롤(Infinite Scroll)이죠. 스크롤을 내릴 때마다 새로운 데이터를 불러와 사용자에게 끊김 없는 경험을 제공합니다.
+
+하지만 단순히 아이템을 계속 쌓아 올리는 방식은 문제가 있습니다. 수천, 수만 개의 DOM 노드가 누적되면 브라우저 성능이 급격히 저하되고, 모바일 환경에서는 쉽게 렉이 발생합니다. 이를 해결하기 위해 사용하는 기법이 바로 가상 스크롤(Virtual Scroll)입니다.
+
+이번 글에서는 외부 라이브러리 없이 React만으로 무한 스크롤과 가상 스크롤을 직접 구현하는 방법을 정리합니다.
+
+## <Title>🤔 핵심 아이디어</Title>
+
+### 1. IntersectionObserver
+
+- 마지막 아이템이 보이면 → 새로운 데이터 요청 (무한 스크롤)
+
+### 2. Virtualization
+
+- 전체 아이템 높이에 맞는 스크롤 공간 만들기
+- 현재 뷰포트에 보이는 아이템만 slice 해서 렌더링
+- 아이템은 absolute로 배치해서 원래 위치에 있는 것처럼 보이게 함
+
+## <Title>🐣 구현</Title>
+
+### 1. 무한 스크롤 구현하기
+
+#### 1) 스크롤 이벤트 방식
+
+무한 스크롤을 구현하는 가장 직관적인 방법은 스크롤 이벤트를 감지하는 것입니다. 스크롤할 때마다 화면 끝에 도달했는지 계산해서 데이터를 불러오는 방식이죠.
+
+```tsx
+const SCROLL_THRESHOLD = 100
+
+useEffect(() => {
+  const handleScroll = () => {
+    // 스크롤을 거의 끝까지 내렸을 때 (SCROLL_THRESHOLD 남겨두고)
+    if (window.innerHeight + window.scrollY >= document.body.offsetHeight - SCROLL_THRESHOLD) {
+      // 새로운 데이터 로드
+    }
+  }
+  window.addEventListener('scroll', handleScroll)
+  return () => window.removeEventListener('scroll', handleScroll)
+}, [])
+```
+
+👉 하지만 이 방식은 단점이 있습니다. 스크롤 이벤트가 매우 자주 발생하여 성능에 부담을 줄 수 있고, 직접 좌표 계산을 해야 하므로 코드가 다소 장황합니다. (throttle을 사용하면 이벤트 호출 빈도를 줄여 일부 최적화 가능)
+
+#### 2) IntersectionObserver 방식 (추천)
+
+보다 효율적인 방법은 IntersectionObserver를 사용하는 것입니다. 브라우저가 특정 DOM 요소가 뷰포트에 들어왔는지 자동으로 감지해주기 때문에, 불필요한 수학적 계산이나 이벤트 핸들링 부담이 줄어듭니다.
+
+```tsx
+const BATCH_SIZE = 20
+
+const OPTIONS = {
+  root: null, // 관찰 기준이 되는 부모 요소, 기본값: null (브라우저 뷰포트)
+  rootMargin: '0px', // 관찰 영역을 조금 더 크게/작게 감지
+  threshold: 1.0, // 어느 정도 보일 때 콜백 실행할지 결정
+}
+
+const InfiniteScroll = () => {
+  const [items, setItems] = useState<number[]>(Array.from({ length: BATCH_SIZE }, (_, i) => i))
+  const loaderRef = useRef<HTMLLIElement | null>(null)
+
+  const loadMore = () =>
+    setItems((prev) => [...prev, ...Array.from({ length: BATCH_SIZE }, (_, i) => prev.length + i)])
+
+  useEffect(() => {
+    const loader = loaderRef.current
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) loadMore()
+    }, OPTIONS)
+
+    if (loader) observer.observe(loader)
+    return () => {
+      if (loader) observer.unobserve(loader)
+    }
+  }, [])
+
+  return (
+    <ul>
+      {items.map((item) => (
+        <li key={item}>Item {item}</li>
+      ))}
+      <li ref={loaderRef}>Loading more...</li>
+    </ul>
+  )
+}
+```
+
+### 2. 가상 스크롤 적용하기
+
+이제 가상화를 적용해 화면에 보이는 아이템만 렌더링합니다. 전체 아이템을 모두 DOM에 올리지 않고, 필요한 범위만 보여주어 성능을 최적화합니다.
+
+```tsx showLineNumbers {2-3, 13, 16-24, 42-86}
+const BATCH_SIZE = 20
+const ITEM_HEIGHT = 60
+const CONTAINER_HEIGHT = 400
+
+const OPTIONS = {
+  root: null,
+  rootMargin: '0px 0px 200px 0px',
+  threshold: 0,
+}
+
+const InfiniteVirtualScroll = () => {
+  const [items, setItems] = useState<number[]>(Array.from({ length: BATCH_SIZE }, (_, i) => i))
+  const [scrollTop, setScrollTop] = useState(0)
+  const loaderRef = useRef<HTMLLIElement | null>(null)
+
+  const totalHeight = items.length * ITEM_HEIGHT // 전체 스크롤 영역
+  const startIndex = Math.floor(scrollTop / ITEM_HEIGHT) // 현재 스크롤 위치 기준으로 보이는 첫번째 인덱스
+  const endIndex = Math.min(
+    items.length - 1,
+    startIndex + Math.ceil(CONTAINER_HEIGHT / ITEM_HEIGHT),
+  ) // 화면에 보여질 마지막 인덱스, 부분적으로 보이는 것까지 포함(ceil)
+  const visibleItems = items.slice(startIndex, endIndex + 1)
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => setScrollTop(e.currentTarget.scrollTop)
+
+  const loadMore = () =>
+    setItems((prev) => [...prev, ...Array.from({ length: BATCH_SIZE }, (_, i) => prev.length + i)])
+
+  useEffect(() => {
+    const loader = loaderRef.current
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) loadMore()
+    }, OPTIONS)
+
+    if (loader) observer.observe(loader)
+    return () => {
+      if (loader) observer.unobserve(loader)
+    }
+  }, [])
+
+  return (
+    <div
+      style={{
+        position: 'relative',
+        overflowY: 'auto',
+        height: CONTAINER_HEIGHT,
+        border: '1px solid black',
+      }}
+      onScroll={handleScroll}
+    >
+      <ul
+        style={{
+          position: 'relative',
+          height: totalHeight,
+        }}
+      >
+        {visibleItems.map((item, index) => (
+          <li
+            key={item}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              position: 'absolute',
+              top: (startIndex + index) * ITEM_HEIGHT,
+              width: '100%',
+              height: ITEM_HEIGHT,
+              padding: '0 16px',
+              borderBottom: '1px solid black',
+              background: 'white',
+              color: 'black',
+            }}
+          >
+            Item {item}
+          </li>
+        ))}
+        <li
+          ref={loaderRef}
+          style={{
+            position: 'absolute',
+            top: items.length * ITEM_HEIGHT,
+            width: '100%',
+            height: 1, // 최소한으로 영역만 차지
+          }}
+        />
+      </ul>
+    </div>
+  )
+}
+```
+
+## <Title>🚀 성능 최적화 (선택)</Title>
+
+### 1. requestAnimationFrame
+
+스크롤 이벤트가 발생해도 렌더링 프레임 단위로 한 번만 상태를 업데이트합니다.
+
+```tsx
+// const handleScroll = (e: React.UIEvent<HTMLDivElement>) => setScrollTop(e.currentTarget.scrollTop)
+
+const scrollPending = useRef(false)
+
+const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+  const scrollTopValue = e.currentTarget.scrollTop
+  if (!scrollPending.current) {
+    requestAnimationFrame(() => {
+      setScrollTop(scrollTopValue)
+      scrollPending.current = false
+    })
+    scrollPending.current = true
+  }
+}
+```
+
+### 2. transform
+
+DOM 요소를 위치 속성 기반으로 이동하면 브라우저가 레이아웃을 다시 계산해야 합니다. 반면, transform을 활용하면 GPU에서 처리되어 화면 이동이 훨씬 부드럽고 효율적입니다.
+
+```tsx
+<li
+  key={item}
+  style={{
+    // top: (startIndex + index) * ITEM_HEIGHT,
+    transform: `translateY(${(startIndex + index) * ITEM_HEIGHT}px)`,
+    ...
+  }}
+>
+  Item {item}
+</li>
+```
+
+## <Title>🌟 결과</Title>
+
+간단하게 스타일링한 뒤, 결과를 확인합니다. 개발자 도구(F12)를 열고 Elements 탭을 보면, 가상화 덕분에 일부 아이템만 렌더링되는 것을 확인할 수 있습니다.
+
+<InfiniteVirtualScroll />

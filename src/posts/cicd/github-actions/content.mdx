@@ -1,0 +1,223 @@
+---
+title: 'GitHub Actions 빌드 자동화 + Slack 알림 연동하기'
+desc: 'GitHub Actions와 Slack Incoming Webhook을 활용해 빌드 결과를 실시간으로 받아보자.'
+tags: [CI/CD, GitHub Actions]
+date: 2025-09-20
+---
+
+## <Title>🌱 들어가며</Title>
+
+CI/CD는 더 이상 대규모 프로젝트에서만 사용하는 개념이 아닙니다. 개인 사이드 프로젝트나 소규모 팀에서도 자동화된 빌드와 배포, 그리고 알림은 개발 효율을 크게 높여줍니다. 이번 글에서는 GitHub Actions를 통해 자동 빌드하고, 빌드 결과를 Slack으로 알림받는 과정을 정리해 보겠습니다.
+
+## <Title>🧐 GitHub Actions의 이해</Title>
+
+GitHub Actions는 GitHub에서 제공하는 CI/CD(Continuous Integration / Continuous Deployment) 도구입니다. 말 그대로, 코드를 올리면 자동으로 테스트·빌드·배포 같은 작업을 실행해 주는 자동화 플랫폼이라고 이해하면 쉽습니다.
+
+### 핵심 개념
+
+|              | 설명                                                                   | 예시                                     |
+| ------------ | ---------------------------------------------------------------------- | ---------------------------------------- |
+| **workflow** | 자동화 프로세스의 집합. 언제(trigger) 어떤 작업(job)을 실행할지 정의함 | main 브랜치에 push될 때 빌드 실행        |
+| **job**      | workflow 안에서 실행되는 개별 작업 단위. 병렬 또는 순차 실행 가능      | 빌드 job, 테스트 job                     |
+| **step**     | job 안에서 실행되는 실제 명령어 단위                                   | `npm install`, `npm run build`           |
+| **action**   | 반복적으로 사용할 수 있는 자동화 단위. step에서 호출하여 활용 가능     | `actions/checkout`, `actions/setup-node` |
+| **runner**   | workflow를 실행하는 환경(가상 머신)                                    | ubuntu, windows, macOS                   |
+
+### 장점
+
+- GitHub 저장소와 밀접하게 연동됨 (push, PR 등 이벤트 기반 실행)
+- 별도 서버 없이 CI/CD 환경을 구축할 수 있음
+- 오픈소스 생태계 덕분에 다양한 Action(재사용 가능한 작업 단위)을 가져다 쓸 수 있음
+
+## <Title>🧑‍💻 GitHub Actions 빌드 자동화</Title>
+
+### 1. Workflow 작성 (.yml)
+
+workflow 파일은 두 가지 방법으로 생성할 수 있습니다.
+
+첫 번째 방법은 로컬에서 직접 생성하는 것입니다. 프로젝트 루트에 `.github/workflows/ci.yml` 파일을 만들고 필요한 내용을 작성하면 됩니다.
+
+두 번째 방법은 GitHub 웹에서 생성하는 방법입니다. repository 상단 메뉴의 **Actions** 탭으로 이동한 뒤, `set up a workflow yourself`을 선택하면 웹에서 바로 workflow 파일을 작성하고 저장할 수 있습니다.
+
+<Image src="cicd/set-up-a-workflow-yourself.png" alt="set-up-a-workflow-yourself result" />
+
+생성한 yml 파일에 아래 코드를 입력합니다.
+
+```yml title=".github/workflows/ci.yml"
+# workflow의 이름을 정의합니다.
+# GitHub Actions UI에서 이 이름으로 표시됩니다.
+name: CI Build & Slack Notification
+
+# workflow가 언제 실행될지 trigger를 정의합니다.
+# 예) main 브랜치에 push될 때만 실행됩니다.
+on:
+  push:
+    branches:
+      - main
+
+# workflow 안에서 수행할 개별 작업 단위를 정의합니다.
+jobs:
+  # 각 job을 식별하는 고유 이름인 job_id를 정의합니다.
+  build:
+    # job의 이름을 정의합니다.
+    name: Build
+    # job이 실행될 런타임 환경을 지정합니다.
+    runs-on: ubuntu-latest
+
+    # job 안에서 실행할 단계들을 정의합니다.
+    # 각 step은 순차적으로 실행됩니다.
+    steps:
+      # 1. 현재 Repository를 Runner 환경에 복사(Checkout)합니다.
+      # 외부 Action(actions/checkout@v5)을 사용합니다.
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      # 2. Node.js 환경을 설정합니다.
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          # 사용할 Node.js 버전 지정
+          node-version: ${{ vars.NODE_VERSION }}
+          # npm 캐시 자동 관리
+          cache: npm
+
+      # 3. 의존성을 설치합니다.
+      - name: Install Dependencies
+        run: npm ci
+
+      # 4. 프로젝트를 빌드합니다.
+      - name: Build project
+        run: npm run build
+```
+
+### 2. Secrets vs Variables
+
+CI/CD workflow를 작성할 때는 Node.js 버전이나 API 토큰 같은 설정 값을 관리하는 것이 중요합니다. GitHub에서는 주로 **Secrets**와 **Variables**를 활용할 수 있습니다.
+
+|           | **Secrets**                                        | **Variables**                                        |
+| --------- | -------------------------------------------------- | ---------------------------------------------------- |
+| 특징      | 암호화되어 저장되며, workflow 로그에 출력되지 않음 | 일반 텍스트로 저장되며, 필요시 환경 변수로 사용 가능 |
+| 용도      | 토큰, 비밀번호, API 키 등 민감 정보                | Node.js 버전, 배포 환경, 설정 값 등 민감하지 않은 값 |
+| 사용 방법 | `${{ secrets.NAME }}`                              | `${{ vars.NAME }}`                                   |
+
+<Image src="cicd/actions-secrets-and-variables.png" alt="actions-secrets-and-variables result" />
+
+### 3. 결과 확인
+
+작성한 workflow 파일을 push하면, 이후부터는 workflow를 트리거하는 이벤트가 발생할 때마다 자동으로 실행됩니다. workflow 실행 결과는 GitHub 상단의 **Actions** 탭에서 확인할 수 있습니다.
+
+<Image src="cicd/workflow-result.png" alt="workflow-result" />
+
+## <Title>🤖 빌드 상태를 Slack으로 알림 받기</Title>
+
+workflow에서 Slack이나 이메일 알림을 설정했다면, 빌드 완료 여부를 외부에서 실시간으로 확인할 수도 있습니다. 이를 통해 팀원들과 공유하거나, CI/CD 상태를 빠르게 파악할 수 있습니다.
+
+### 1. Slack Incoming Webhook 준비
+
+1\) Slack 워크스페이스에서 앱을 생성하고 `Incoming Webhook` 기능을 활성화합니다.
+
+2\)`Incoming Webhook` 설정에서 알림을 받을 채널을 선택한 후 `Webhook URL`을 복사합니다.
+
+3\) 복사한 `Webhook URL`을 GitHub의 `Secrets`에 등록합니다.
+
+### 2. Slack 알림 Action 구현
+
+GitHub Actions에는 이미 다양한 Slack 알림 Action이 존재합니다. 원하는 Action을 선택해 바로 사용할 수도 있지만, 이번에는 직접 만들어보면서 동작 원리와 커스터마이징 방법을 이해해보겠습니다.
+
+👉 Slack에서 제공하는 [Block Kit Builder](https://app.slack.com/block-kit-builder)를 활용하면 메시지 디자인을 빠르게 커스터마이징할 수 있습니다.
+
+```yml title=".github/actions/slack-notify/action.yml"
+name: Slack Notify
+description: Send build notification to Slack
+
+# webhook-url와 build-status 값을 전달받습니다.
+inputs:
+  webhook-url:
+    description: Slack Incoming Webhook URL
+    required: true
+  build-status:
+    description: 'Build status: success or failure'
+    required: true
+
+# 빌드 상태에 따라 이모지와 텍스트를 설정하고 Slack 메시지를 전송합니다.
+runs:
+  using: composite
+  steps:
+    - name: Send Slack Notification
+      shell: bash
+      run: |
+        COMMIT_SHA=${GITHUB_SHA:0:7}
+
+        if [ "${{ inputs.build-status }}" = "success" ]; then
+          EMOJI="✅"
+          STATUS_TEXT="Success"
+        else
+          EMOJI="❌"
+          STATUS_TEXT="Failure"
+        fi
+
+        curl -X POST -H 'Content-type: application/json' \
+          --data "{
+            \"blocks\": [
+              {
+                \"type\": \"header\",
+                \"text\": {
+                  \"type\": \"plain_text\",
+                  \"text\": \":rocket: Build Notification\",
+                  \"emoji\": true
+                }
+              },
+              {
+                \"type\": \"section\",
+                \"fields\": [
+                 {\"type\": \"mrkdwn\", \"text\": \"*Repository:*\n${GITHUB_REPOSITORY}\"},
+                  {\"type\": \"mrkdwn\", \"text\": \"*Branch:*\n${GITHUB_REF_NAME}\"},
+                  {\"type\": \"mrkdwn\", \"text\": \"*Commit:*\n$COMMIT_SHA\"},
+                  {\"type\": \"mrkdwn\", \"text\": \"*Actor:*\n${GITHUB_ACTOR}\"},
+                  {\"type\": \"mrkdwn\", \"text\": \"*Status:*\n$EMOJI $STATUS_TEXT\"}
+                ]
+              },
+            ]
+          }" "${{ inputs.webhook-url }}"
+```
+
+### 3. workflow에 Slack 알림 Action 추가
+
+이제 앞에서 만든 Slack Notify Action을 workflow에 연결해보겠습니다. workflow에서는 빌드 성공/실패 여부를 확인한 후 항상 Slack으로 알림이 전송되도록 구성합니다.
+
+```yml title=".github/workflows/ci.yml"
+      ...
+      # 빌드를 실행하고 결과를 환경변수에 저장합니다.
+      - name: Build project
+        run: |
+          if npm run build; then
+            echo "BUILD_STATUS=success" >> $GITHUB_ENV
+          else
+            echo "BUILD_STATUS=failure" >> $GITHUB_ENV
+            exit 1
+          fi
+
+      # 빌드 완료를 Slack으로 알립니다.
+      - name: Slack Notification
+        # 빌드 성공 여부와 관계없이 항상 Slack 알림을 실행합니다.
+        if: always()
+        # 우리가 만든 Action의 경로입니다.
+        uses: ./.github/actions/slack-notify
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          build-status: ${{ env.BUILD_STATUS }}
+```
+
+### 4. 결과 확인
+
+코드 push 후 Slack 채널에서 빌드 상태 알림 메시지가 정상적으로 도착하는 것을 확인할 수 있습니다. 아래는 실제 Slack 메시지 예시 화면입니다.
+
+<Image src="cicd/slack-notify-result.png" alt="slack-notify-result" width="500" />
+
+## <Title>📝 마무리</Title>
+
+이번 글에서는 GitHub Actions와 Slack Incoming Webhook을 활용해 빌드 결과를 실시간으로 알림 받는 방법을 살펴보았습니다.
+
+실제로 제가 경험한 현업 환경에서는 팀 규모가 커지면 CI/CD를 전담하는 엔지니어가 따로 있고, Jenkins나 다른 툴을 사용하는 경우가 많아 GitHub Actions를 직접 설정할 일이 흔치 않았습니다. 그럼에도 불구하고, GitHub Actions는 비교적 간단하게 설정할 수 있고, 작은 규모의 프로젝트나 개인 작업에서는 빠르게 자동화 환경을 구축할 수 있는 훌륭한 도구입니다.
+
+이번 글에서는 그런 관점에서 GitHub Actions의 기본적인 흐름과 Slack 알림 연동 방법을 정리해보았습니다. 앞으로도 다양한 자동화 도구들을 유연하게 활용할 수 있도록, 작은 경험 하나하나가 밑거름이 되기를 바랍니다.

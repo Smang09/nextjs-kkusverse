@@ -1,0 +1,12 @@
+{
+  "title": "KKUSVERSE Blog",
+  "description": "Explore a wide range of insights and information.",
+  "category": {
+    "all": "All",
+    "dev": "Dev",
+    "javascript": "JavaScript",
+    "react": "React",
+    "cicd": "CI/CD",
+    "test": "Test"
+  }
+}

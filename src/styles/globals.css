@@ -1,0 +1,91 @@
+@import 'tailwindcss';
+@custom-variant dark (&:where(.dark, .dark *));
+
+body {
+  font-family: var(--font-pretendard);
+}
+
+figure[data-rehype-pretty-code-figure] {
+  @apply my-4 border border-slate-300 dark:border-zinc-700 rounded-lg bg-slate-100 dark:bg-zinc-800 text-sm overflow-x-auto;
+}
+
+figcaption[data-rehype-pretty-code-title] {
+  @apply px-4 py-3 border-b border-slate-300 dark:border-zinc-700 sticky left-0;
+}
+
+code {
+  @apply px-1 bg-slate-100 dark:bg-zinc-800;
+}
+
+code[data-theme] {
+  @apply p-4;
+}
+
+code[data-theme] span {
+  @apply text-[var(--shiki-light)] dark:text-[var(--shiki-dark)];
+}
+
+code[data-theme] > span {
+  @apply pr-4;
+}
+
+code[data-line-numbers] {
+  counter-reset: line;
+}
+
+code[data-line-numbers] > span[data-line]::before {
+  counter-increment: line;
+  content: counter(line);
+  @apply inline-block mr-6 w-3 text-slate-400 dark:text-zinc-500 text-right;
+}
+
+code[data-line-numbers-max-digits='2'] > span[data-line]::before {
+  @apply w-5;
+}
+
+code[data-line-numbers-max-digits='3'] > span[data-line]::before {
+  @apply w-7;
+}
+
+code span[data-highlighted-line] {
+  @apply bg-slate-200 dark:bg-zinc-700;
+}
+
+@theme {
+  --animate-slideDownBounce: slideDownBounce 1s ease-in;
+}
+
+@keyframes clipProgress {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0% 0 0);
+  }
+}
+
+@keyframes wave {
+  from {
+    transform: translate3d(-90px, 0, 0);
+  }
+  to {
+    transform: translate3d(85px, 0, 0);
+  }
+}
+
+@keyframes slideDownBounce {
+  0% {
+    transform-origin: top;
+    transform: scaleY(0);
+  }
+  60% {
+    transform: scaleY(1.05);
+  }
+  80% {
+    transform: scaleY(0.98);
+  }
+  100% {
+    transform-origin: top;
+    transform: scaleY(1);
+  }
+}

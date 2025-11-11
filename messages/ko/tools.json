@@ -1,0 +1,95 @@
+{
+  "breathGuide": {
+    "title": "호흡 가이드",
+    "description": "애니메이션을 따라 호흡하며 마음을 안정시켜보세요.",
+    "settings": {
+      "title": "설정",
+      "breathingDuration": "호흡 시간",
+      "animation": "애니메이션",
+      "inhale": "들숨",
+      "hold": "정지",
+      "exhale": "날숨",
+      "second": "초",
+      "pulse": "파동",
+      "wave": "물결"
+    },
+    "tips": [
+      {
+        "title": "호흡 시작하기",
+        "description": [
+          "▶️ 버튼을 누르면 호흡이 시작됩니다. 화면의 애니메이션을 보며 천천히 숨을 들이마시고 내쉬세요."
+        ]
+      },
+      {
+        "title": "설정 변경하기",
+        "description": [
+          "⚙️ 버튼을 누르면 호흡 시간과 애니메이션 종류를 선택할 수 있습니다. 나에게 맞는 호흡 리듬을 찾아보세요."
+        ]
+      },
+      {
+        "title": "애니메이션 종류",
+        "description": [
+          "• 파동: 파동이 커질 때 숨을 들이마시고, 크기가 유지될 때 숨을 멈춘 뒤, 작아질 때 숨을 내쉽니다.",
+          "• 물결: 물결이 차오를 때 숨을 들이마시고, 높이가 유지될 때 숨을 멈춘 뒤, 가라앉을 때 숨을 내쉽니다."
+        ]
+      }
+    ]
+  },
+  "randomPicker": {
+    "title": "랜덤 추첨기",
+    "description": "입력한 항목 중 하나를 무작위로 선택합니다.",
+    "input": {
+      "titleGuide": "랜덤 추첨기의 제목을 입력해주세요.",
+      "itemsGuide": "항목을 쉼표(,)로 구분하여 입력해주세요.",
+      "placeholder": "예: 피자, 치킨, 햄버거",
+      "itemsError": "항목은 두 개 이상 입력해주세요.",
+      "complete": "입력 완료",
+      "reset": "다시 입력",
+      "countGuide": "뽑을 개수를 입력해주세요.",
+      "excludeUsed": "이미 뽑힌 항목 제외",
+      "countError": "뽑을 개수는 항목 수보다 작아야 합니다."
+    },
+    "picker": {
+      "ready": "준비 완료",
+      "start": "추첨 시작",
+      "inProgress": "추첨중...",
+      "finished": "추첨 완료"
+    }
+  },
+  "multiRandomPicker": {
+    "title": "다중 랜덤 추첨기",
+    "description": "입력한 항목 중 원하는 개수만큼 무작위로 선택합니다."
+  },
+  "pomodoroTimer": {
+    "title": "뽀모도로 타이머",
+    "description": "공부와 업무 집중을 위한 뽀모도로 타이머입니다.",
+    "settings": {
+      "title": "설정",
+      "minute": "분",
+      "count": "회",
+      "focus": "집중",
+      "shortBreak": "짧은 휴식",
+      "longBreak": "긴 휴식",
+      "cycle": "사이클"
+    }
+  },
+  "10Block": {
+    "title": "10 Block",
+    "description": "숫자 블록을 드래그하여 합이 10이 되도록 맞추는 중독성 강한 퍼즐 게임입니다.",
+    "howTo": "블록을 드래그해서 숫자의 합이 10이 되도록 맞춰보세요.",
+    "start": "시작",
+    "restart": "재시작",
+    "gameOver": "게임 종료",
+    "yourScore": "점수",
+    "playAgain": "다시 하기"
+  },
+  "slidingPuzzle": {
+    "title": "슬라이딩 퍼즐",
+    "description": "타일을 움직여 퍼즐을 원래 순서대로 맞추는 클래식 게임입니다.",
+    "howTo": "타일을 클릭하거나 방향키를 사용해 퍼즐을 맞춰보세요.",
+    "puzzleSize": "퍼즐 크기",
+    "shuffle": "섞기",
+    "playAgain": "다시 하기",
+    "moves": "이동 횟수"
+  }
+}

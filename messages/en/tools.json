@@ -1,0 +1,95 @@
+{
+  "breathGuide": {
+    "title": "Breathing Guide",
+    "description": "Follow the animation to breathe and relax your mind.",
+    "settings": {
+      "title": "Settings",
+      "breathingDuration": "Breathing Duration",
+      "animation": "Animation",
+      "inhale": "Inhale",
+      "hold": "Hold",
+      "exhale": "Exhale",
+      "second": "sec",
+      "pulse": "Pulse",
+      "wave": "Wave"
+    },
+    "tips": [
+      {
+        "title": "Start Breathing",
+        "description": [
+          "Press the ▶️ button to begin breathing. Watch the animation and slowly inhale and exhale."
+        ]
+      },
+      {
+        "title": "Change Settings",
+        "description": [
+          "Press the ⚙️ button to choose your breathing duration and animation type. Find the rhythm that suits you best."
+        ]
+      },
+      {
+        "title": "Animation Types",
+        "description": [
+          "• Pulse: Inhale as the pulse expands, hold your breath while it remains large, and exhale as it contracts.",
+          "• Wave: Inhale as the wave rises, hold your breath at its peak, and exhale as it falls."
+        ]
+      }
+    ]
+  },
+  "randomPicker": {
+    "title": "Random Picker",
+    "description": "Select one item at random from your list.",
+    "input": {
+      "titleGuide": "Enter a title for your random picker.",
+      "itemsGuide": "Enter items separated by commas (,).",
+      "placeholder": "e.g. Pizza, Chicken, Burger",
+      "itemsError": "Enter at least two items.",
+      "complete": "Input Complete",
+      "reset": "Re-enter",
+      "countGuide": "Enter the number of items to pick.",
+      "excludeUsed": "Exclude previously picked items",
+      "countError": "The number of picks must be less than the total number of items."
+    },
+    "picker": {
+      "ready": "Ready",
+      "start": "Start Picking",
+      "inProgress": "Picking...",
+      "finished": "Done"
+    }
+  },
+  "multiRandomPicker": {
+    "title": "Multi Random Picker",
+    "description": "Select multiple items at random from your list."
+  },
+  "pomodoroTimer": {
+    "title": "Pomodoro Timer",
+    "description": "A Pomodoro timer for study and work focus.",
+    "settings": {
+      "title": "Settings",
+      "minute": "min",
+      "count": "times",
+      "focus": "Focus",
+      "shortBreak": "Short Break",
+      "longBreak": "Long Break",
+      "cycle": "Cycle"
+    }
+  },
+  "10Block": {
+    "title": "10 Block",
+    "description": "An addictive puzzle game where you drag number blocks to make a sum of 10.",
+    "howTo": "Drag the blocks to make a total of 10.",
+    "start": "Start",
+    "restart": "Restart",
+    "gameOver": "Game Over",
+    "yourScore": "Score",
+    "playAgain": "Play Again"
+  },
+  "slidingPuzzle": {
+    "title": "Sliding Puzzle",
+    "description": "A classic game where you move tiles to restore the correct order.",
+    "howTo": "Click on a tile or use the arrow keys to solve the puzzle.",
+    "puzzleSize": "Puzzle Size",
+    "shuffle": "Shuffle",
+    "playAgain": "Play Again",
+    "moves": "Moves"
+  }
+}

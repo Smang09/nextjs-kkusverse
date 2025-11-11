@@ -1,0 +1,219 @@
+---
+title: 'React에서 Bottom Sheet 만들기'
+desc: 'Zustand와 커스텀 훅을 활용해 바텀시트를 만들어보자.'
+tags: [Bottom Sheet, React, Zustand, Focus Trap]
+date: 2025-10-16
+---
+
+## <Title>🌱 들어가며</Title>
+
+바텀시트(Bottom Sheet)는 모바일 UI에서 자주 사용되는 컴포넌트입니다. 화면 하단에서 슬라이드 업되어 나타나며, 정보를 보여주거나 특정 액션을 유도할 때 유용하죠.
+
+최근 프론트엔드 사전 과제에서 바텀시트를 직접 구현할 기회가 있었는데, 오랜만에 기본 구조부터 상태 관리, 렌더링 전략까지 다시 정리해볼 수 있었습니다. 이 글에서는 그 과정을 간단히 공유해보려 합니다.
+
+## <Title>🧑‍💻 직접 구현해보기</Title>
+
+### 1. 기본 스타일 구성
+
+먼저 바텀시트의 기본 구조를 잡아봅니다. 스타일은 Tailwind CSS를 사용해 간단하게 구성했습니다.
+
+```tsx
+const BottomSheet = ({ children, title }: Props) => {
+  return (
+    <div className="flex flex-col max-h-[80vh] p-4 rounded-t-2xl shadow-lg bg-white dark:bg-zinc-800 break-words">
+      {title && <div>{title}</div>}
+      <div className="overflow-y-auto">{children}</div>
+    </div>
+  )
+}
+```
+
+### 2. 상태 관리
+
+바텀시트의 열림/닫힘 상태를 여러 컴포넌트에서 제어하려면 전역 상태 관리가 필요합니다. `Redux`나 `Context API`도 가능하지만, 이번에는 더 간단하고 직관적인 `Zustand`를 사용했습니다.
+
+```tsx
+import { ReactNode } from 'react'
+import { create } from 'zustand'
+
+type params = {
+  title?: string
+  children: ReactNode
+}
+
+type Store = {
+  isOpen: boolean
+  children: ReactNode
+  title?: string
+  open: (params: params) => void
+  close: () => void
+}
+
+const initialState = {
+  isOpen: false,
+  children: null,
+  title: '',
+}
+
+const useBottomSheetStore = create<Store>((set) => ({
+  ...initialState,
+  open: ({ title, children }: params) => set({ isOpen: true, title, children }),
+  close: () => set({ isOpen: false }),
+}))
+```
+
+이제 어디서든 `useBottomSheetStore`를 호출해 바텀시트를 열고 닫을 수 있습니다.
+
+```tsx
+const { open } = useBottomSheetStore()
+
+<button onClick={() => open({ title: '상세보기', children: <Detail /> })}>
+  열기
+</button>
+```
+
+### 3. 바텀시트 완성도 높이기
+
+#### 1) 애니메이션 처리
+
+단순히 `isOpen`만으로 바텀시트를 제어하면 닫힐 때 애니메이션이 보이지 않고 바로 사라지는 문제가 생깁니다. 이를 해결하기 위해 `useAnimation` 훅을 만들어 렌더링 여부와 애니메이션 상태를 함께 관리했습니다.
+
+```ts title="useAnimation.ts"
+const useAnimation = (active: boolean) => {
+  const [isMounted, setIsMounted] = useState(false)
+  const [isAnimating, setIsAnimating] = useState(false)
+
+  // 애니메이션이 진행 중이면 렌더링 유지
+  const shouldRender = active || isMounted
+
+  // 애니메이션 시작 시점
+  const animationTrigger = active && isMounted
+
+  const onTransitionEnd = useCallback(() => {
+    setIsAnimating(false)
+    if (!active) setIsMounted(false)
+  }, [active])
+
+  useEffect(() => {
+    if (shouldRender) setIsAnimating(true)
+    if (active) setIsMounted(true)
+  }, [active, shouldRender])
+
+  return { shouldRender, animationTrigger, isAnimating, onTransitionEnd }
+}
+```
+
+#### 2) 외부 클릭 시 닫기
+
+바텀시트 외부를 클릭하면 자동으로 닫히도록 `useClickOutside` 훅을 구현했습니다.
+
+```ts title="useClickOutside.ts"
+const useClickOutside = (
+  ref: RefObject<HTMLElement | null>,
+  callback: (event: MouseEvent) => void,
+) => {
+  useEffect(() => {
+    const handleClick = (event: MouseEvent) => {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        callback(event)
+      }
+    }
+
+    document.addEventListener('click', handleClick, true)
+
+    return () => {
+      document.removeEventListener('click', handleClick, true)
+    }
+  }, [ref, callback])
+}
+```
+
+#### 3) 포커스 트랩
+
+접근성을 고려해 바텀시트가 열렸을 때 포커스가 외부로 빠져나가지 않도록 `focus-trap-react`를 활용했습니다.
+
+#### 4) Provider 완성하기
+
+```tsx title="BottomSheetProvider.tsx"
+// 바텀시트의 동작을 제어하는 Provider 컴포넌트
+// 애니메이션, 포커스 트랩, 외부 클릭 감지, 렌더링 제어 등을 통합 관리합니다.
+const BottomSheetProvider = () => {
+  const bottomSheetRef = useRef(null)
+  const { isOpen, title, children, close } = useBottomSheetStore()
+  const { shouldRender, animationTrigger, isAnimating, onTransitionEnd } = useAnimation(isOpen)
+  const focusActive = isOpen && !isAnimating && animationTrigger
+
+  useClickOutside(bottomSheetRef, () => {
+    if (focusActive) close()
+  })
+
+  // 바텀시트가 열릴 때 body 스크롤 막기
+  useEffect(() => {
+    if (isOpen) {
+      const originalStyle = window.getComputedStyle(document.body).overflow
+      document.body.style.overflow = 'hidden'
+      return () => {
+        document.body.style.overflow = originalStyle
+      }
+    }
+  }, [isOpen])
+
+  if (!shouldRender) return null
+
+  return (
+    // FocusTrap으로 포커스가 바텀시트 안에 머물도록 설정
+    <FocusTrap active={focusActive}>
+      <div className="z-1">
+        {/* 배경 오버레이: 클릭 감지 및 페이드 애니메이션 */}
+        <div
+          className={`fixed top-0 left-0 size-full bg-black/30 transition-opacity ${
+            animationTrigger ? 'opacity-100' : 'opacity-0'
+          }`}
+          onTransitionEnd={onTransitionEnd}
+        />
+        {/* 바텀시트 본체: 슬라이드 애니메이션 */}
+        <div
+          ref={bottomSheetRef}
+          className={`fixed bottom-0 left-0 w-full transition-transform ${
+            animationTrigger ? 'translate-y-0' : 'translate-y-full'
+          }`}
+        >
+          <BottomSheet title={title}>{children}</BottomSheet>
+        </div>
+      </div>
+    </FocusTrap>
+  )
+}
+```
+
+### 4. 렌더링 위치 지정
+
+바텀시트는 항상 화면 최상단에 떠야 하므로, 일반적인 컴포넌트 트리 안에 두면 `z-index`나 `overflow` 문제로 가려질 수 있습니다. 이를 해결하는 방법은 다음과 같습니다.
+
+#### 1) React Portal 사용
+
+`document.body`에 직접 렌더링하여 부모 스타일의 영향을 받지 않도록 합니다.
+
+```tsx
+import { createPortal } from 'react-dom'
+
+const BottomSheet = ({ children, title }: Props) => {
+  return createPortal(
+    <div>
+      {title && <div>{title}</div>}
+      <div>{children}</div>
+    </div>,
+    document.body,
+  )
+}
+```
+
+#### 2) 앱 루트에 Provider 마운트
+
+Portal을 사용하지 않고, `App.tsx`나 `Layout` 등 앱 루트에 `BottomSheetProvider`를 마운트하는 방식도 가능합니다. 이 경우에도 항상 동일한 레벨에서 렌더링되므로 안정적으로 동작합니다.
+
+## <Title>🌟 결과</Title>
+
+이번 구현을 통해 바텀시트의 구조적 설계, 상태 관리, 애니메이션 처리, 접근성까지 한 번에 정리할 수 있었습니다. 실제 서비스에 적용할 때는 다양한 예외 상황과 디바이스 대응도 고려해야겠지만, 기본기를 다지기엔 충분한 연습이었습니다.
+
+<BottomSheetButton />
